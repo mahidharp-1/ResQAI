@@ -85,6 +85,45 @@ VITE_API_URL=http://localhost:8000/api
 9. Open SafeRoute and request a route recommendation.
 10. Use the assistant to ask questions about current application data.
 
+## 4. Live Demo Portal
+
+Live ResQAI portal:
+
+https://resqai-emergency.vercel.app/
+
+### Human-in-the-Loop Dispatch
+
+ResQAI uses human verification before dispatching high-priority emergency resources.
+
+For P1/P2 incidents:
+
+1. Open the **Report Emergency** page.
+2. Enter an emergency description.
+3. Click **Analyze Emergency**.
+4. Review the AI-generated incident type, severity, priority, affected people, and recommended resources.
+5. Click **Send to Command Center**.
+6. Open **Human Verification**.
+7. Review the AI recommendation.
+8. In the verification/review field, enter exactly:
+
+   `Dispatcher reviewed and approved the AI recommendation.`
+
+9. Submit the verification.
+10. The approved incident is sent to the Command Center.
+11. The selected emergency resource is dispatched.
+12. The resource appears as **BUSY / EN_ROUTE** and its position is updated on the map.
+
+### Recommended Demo Emergency
+
+Use the following emergency description for the live demonstration:
+
+`A major apartment building caught fire in a residential area. Heavy smoke is spreading. Three people are trapped inside and one person is unconscious. The main entrance is partially blocked and traffic is congested.`
+
+Expected behavior:
+
+**AI Analysis → P1/Critical → Human Verification → Command Center → Resource Dispatch → Live Map Movement**
+
+> Important: The human verification step is intentional. AI recommendations are decision support and are not automatically treated as final dispatch decisions.
 ## AI architecture
 
 `ai_service.py` is the provider boundary. Demo mode is deterministic and returns the same structured schema expected from a real AI provider. A production provider can be inserted without changing the frontend API contract.
