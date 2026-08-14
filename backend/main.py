@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
+from config import DEMO_MODE
 from models import Incident, Resource, Hazard, Assignment, AIAnalysis
 from dataset_models import DatasetIncident, DatasetHazard
 from dispatch_audit import DispatchAudit
@@ -31,6 +32,11 @@ from resource_movement import (
 # ============================================================
 
 Base.metadata.create_all(bind=engine)
+
+from seed_database import seed_demo_data
+
+if DEMO_MODE:
+    seed_demo_data()
 
 app = FastAPI(
     title="ResQAI API",
