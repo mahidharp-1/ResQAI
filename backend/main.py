@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
 from config import DEMO_MODE
-from models import Incident, Resource, Hazard, Assignment, AIAnalysis
+from models import Incident, Resource, Hazard, Assignment, AIAnalysis, Movement
 from dataset_models import DatasetIncident, DatasetHazard
 from dispatch_audit import DispatchAudit
 from sqlalchemy import func
@@ -24,6 +24,7 @@ from resource_movement import (
     total_distance_m,
     TIME_SCALE,
     MIN_SECONDS,
+    persist_movement,
 )
 
 
@@ -263,6 +264,7 @@ def _reset_demo_state(db: Session):
 
     DEMO_RESOURCE_RELEASES.clear()
     MOVEMENTS.clear()
+    db.query(Movement).delete()
 
     db.commit()
 
@@ -446,7 +448,7 @@ def resources(
     db: Session = Depends(get_db)
 ):
     # Advance real OSRM-backed demo movement before returning coordinates.
-    advance_resource_movement(db, Resource, Incident)
+    advance_resource_movement(db, Resource, Incident, Movement)
 
     # Keep the old 90-second fallback only for BUSY resources that are
     # not currently moving.
@@ -838,6 +840,10 @@ async def _start_resource_movement(
 
     resource_id = resource.resource_id
 
+    # Restore persisted movement state when this request lands on a
+    # different Vercel serverless instance.
+    advance_resource_movement(db, Resource, Incident, Movement)
+
     # --------------------------------------------------------
     # Already moving?
     # --------------------------------------------------------
@@ -1033,6 +1039,10 @@ async def _start_resource_movement(
         "returning_to_idle": False,
     }
 
+    # Persist movement state because Vercel serverless instances do not
+    # guarantee the same Python process for the next polling request.
+    persist_movement(db, Movement, MOVEMENTS[resource_id])
+
     # --------------------------------------------------------
     # Incident lifecycle
     # --------------------------------------------------------
@@ -1100,6 +1110,7 @@ async def start_resource_movement(
         db,
         Resource,
         Incident,
+        Movement,
     )
 
     resource = (
@@ -1172,6 +1183,7 @@ def get_resource_movement(
         db,
         Resource,
         Incident,
+        Movement,
     )
 
     resource = (
@@ -1215,6 +1227,7 @@ def release_resource(
         db,
         Resource,
         Incident,
+        Movement,
     )
 
     resource = (
@@ -2181,8 +2194,7 @@ def _recommendation_haversine_km(lat1, lon1, lat2, lon2):
 
 
 def _build_resource_recommendations(incident, db):
-    advance_resource_movement(db, Resource, Incident)
-    advance_resource_movement(db, Resource, Incident)
+    advance_resource_movement(db, Resource, Incident, Movement)
     _release_due_resources(db)
 
     ai = analyze_incident(

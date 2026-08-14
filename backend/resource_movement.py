@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import math
 import time
+import json
 from datetime import datetime
 
 
@@ -269,6 +270,86 @@ def idle_position(resource_id):
         "latitude": float(position[0]),
         "longitude": float(position[1]),
     }
+
+
+# ============================================================
+# DATABASE PERSISTENCE
+# ============================================================
+
+def _state_to_row_values(state):
+    return {
+        "resource_id": state["resource_id"],
+        "incident_id": state.get("incident_id"),
+        "phase": state.get("phase", "OUTBOUND"),
+        "geometry": json.dumps(state.get("geometry", [])),
+        "route_id": state.get("route_id"),
+        "route_source": state.get("route_source", "OSRM"),
+        "origin_lat": state.get("origin_lat"),
+        "origin_lon": state.get("origin_lon"),
+        "destination_lat": state.get("destination_lat"),
+        "destination_lon": state.get("destination_lon"),
+        "distance_m": float(state.get("distance_m", 0.0)),
+        "duration_seconds": float(state.get("duration_seconds", MIN_SECONDS)),
+        "started_at": float(state.get("started_at", time.time())),
+        "idle_lat": state.get("idle_lat"),
+        "idle_lon": state.get("idle_lon"),
+    }
+
+
+def persist_movement(db, Movement, state):
+    """Upsert a movement row so live movement survives serverless invocations."""
+    values = _state_to_row_values(state)
+    row = (
+        db.query(Movement)
+        .filter(Movement.resource_id == state["resource_id"])
+        .first()
+    )
+    if row is None:
+        row = Movement(**values)
+        db.add(row)
+    else:
+        for key, value in values.items():
+            setattr(row, key, value)
+    db.flush()
+
+
+def _hydrate_movements(db, Movement):
+    """Restore active movement state from the database into the local cache."""
+    rows = db.query(Movement).all()
+    MOVEMENTS.clear()
+    for row in rows:
+        try:
+            geometry = json.loads(row.geometry or "[]")
+        except Exception:
+            geometry = []
+        MOVEMENTS[row.resource_id] = {
+            "resource_id": row.resource_id,
+            "incident_id": row.incident_id,
+            "phase": row.phase or "OUTBOUND",
+            "geometry": geometry,
+            "route_id": row.route_id,
+            "route_source": row.route_source or "OSRM",
+            "origin_lat": row.origin_lat,
+            "origin_lon": row.origin_lon,
+            "destination_lat": row.destination_lat,
+            "destination_lon": row.destination_lon,
+            "distance_m": row.distance_m or 0.0,
+            "duration_seconds": row.duration_seconds or MIN_SECONDS,
+            "started_at": row.started_at,
+            "idle_lat": row.idle_lat,
+            "idle_lon": row.idle_lon,
+        }
+
+
+def delete_persisted_movement(db, Movement, resource_id):
+    row = (
+        db.query(Movement)
+        .filter(Movement.resource_id == resource_id)
+        .first()
+    )
+    if row is not None:
+        db.delete(row)
+        db.flush()
 
 
 # ============================================================
@@ -527,6 +608,8 @@ def start_movement(
         resource_id
     ] = state
 
+    # The caller may not have a DB model available here, so persistence is
+    # performed by main.py immediately after route creation.
     return state
 
 
@@ -538,6 +621,8 @@ def _start_return_to_idle(
     resource_id,
     state,
     resource,
+    db=None,
+    Movement=None,
 ):
     """
     Start the return journey after the resource reaches the incident.
@@ -641,6 +726,9 @@ def _start_return_to_idle(
         "started_at": time.time(),
     }
 
+    if db is not None and Movement is not None:
+        persist_movement(db, Movement, MOVEMENTS[resource_id])
+
     return True
 
 
@@ -652,6 +740,7 @@ def advance(
     db,
     Resource,
     Incident,
+    Movement=None,
 ):
     """
     Advance every active resource movement.
@@ -670,6 +759,11 @@ def advance(
     arrivals = []
 
     now = time.time()
+
+    # Vercel can execute each polling request in a different serverless
+    # process. Rebuild the in-memory cache from SQLite/DB first.
+    if Movement is not None:
+        _hydrate_movements(db, Movement)
 
     for resource_id, state in list(
         MOVEMENTS.items()
@@ -812,6 +906,8 @@ def advance(
                     resource_id,
                     state,
                     resource,
+                    db,
+                    Movement,
                 )
             )
 
@@ -856,6 +952,9 @@ def advance(
                     resource_id,
                     None,
                 )
+
+                if Movement is not None:
+                    delete_persisted_movement(db, Movement, resource_id)
 
                 arrivals.append({
                     "resource_id":
@@ -921,6 +1020,9 @@ def advance(
                 resource_id,
                 None,
             )
+
+            if Movement is not None:
+                delete_persisted_movement(db, Movement, resource_id)
 
             arrivals.append({
                 "resource_id":

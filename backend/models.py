@@ -63,6 +63,25 @@ class AIAnalysis(Base):
     confidence = Column(Float)
     reasoning = Column(Text)
 
+class Movement(Base):
+    __tablename__ = "resource_movements"
+    id = Column(Integer, primary_key=True)
+    resource_id = Column(String, unique=True, nullable=False)
+    incident_id = Column(Integer, nullable=True)
+    phase = Column(String, default="OUTBOUND")
+    geometry = Column(Text, default="[]")
+    route_id = Column(String, nullable=True)
+    route_source = Column(String, default="OSRM")
+    origin_lat = Column(Float, nullable=True)
+    origin_lon = Column(Float, nullable=True)
+    destination_lat = Column(Float, nullable=True)
+    destination_lon = Column(Float, nullable=True)
+    distance_m = Column(Float, default=0.0)
+    duration_seconds = Column(Float, default=8.0)
+    started_at = Column(Float, nullable=False)
+    idle_lat = Column(Float, nullable=True)
+    idle_lon = Column(Float, nullable=True)
+
 class Route(Base):
     __tablename__ = "routes"
     id = Column(Integer, primary_key=True)
