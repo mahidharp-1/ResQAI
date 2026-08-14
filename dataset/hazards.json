@@ -1,0 +1,72 @@
+[
+  {
+    "hazard_id": "HZ-01",
+    "type": "Blocked road",
+    "severity": "HIGH",
+    "latitude": 17.0035,
+    "longitude": 82.2485
+  },
+  {
+    "hazard_id": "HZ-02",
+    "type": "Flooded road",
+    "severity": "HIGH",
+    "latitude": 17.0065,
+    "longitude": 82.2520
+  },
+  {
+    "hazard_id": "HZ-03",
+    "type": "Fire",
+    "severity": "CRITICAL",
+    "latitude": 17.0080,
+    "longitude": 82.2550
+  },
+  {
+    "hazard_id": "HZ-04",
+    "type": "Construction",
+    "severity": "MODERATE",
+    "latitude": 17.0015,
+    "longitude": 82.2460
+  },
+  {
+    "hazard_id": "HZ-05",
+    "type": "Gas leak",
+    "severity": "HIGH",
+    "latitude": 17.0090,
+    "longitude": 82.2580
+  },
+  {
+    "hazard_id": "HZ-06",
+    "type": "Road closure",
+    "severity": "MODERATE",
+    "latitude": 17.0045,
+    "longitude": 82.2505
+  },
+  {
+    "hazard_id": "HZ-07",
+    "type": "Accident",
+    "severity": "MODERATE",
+    "latitude": 17.0070,
+    "longitude": 82.2540
+  },
+  {
+    "hazard_id": "HZ-08",
+    "type": "High-risk area",
+    "severity": "HIGH",
+    "latitude": 17.0020,
+    "longitude": 82.2445
+  },
+  {
+    "hazard_id": "HZ-09",
+    "type": "Blocked road",
+    "severity": "MODERATE",
+    "latitude": 17.0055,
+    "longitude": 82.2515
+  },
+  {
+    "hazard_id": "HZ-10",
+    "type": "Flooded road",
+    "severity": "HIGH",
+    "latitude": 17.0100,
+    "longitude": 82.2590
+  }
+]

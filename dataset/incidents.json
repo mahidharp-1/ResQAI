@@ -1,0 +1,82 @@
+[
+  {
+    "id": "INC-001",
+    "type": "road_accident",
+    "severity": "CRITICAL",
+    "priority": "P1",
+    "people_affected": 3,
+    "description": "Major road accident; two injured and one unconscious; traffic blocked."
+  },
+  {
+    "id": "INC-002",
+    "type": "fire",
+    "severity": "CRITICAL",
+    "priority": "P1",
+    "people_affected": 12,
+    "description": "Apartment fire with smoke visible from multiple floors."
+  },
+  {
+    "id": "INC-003",
+    "type": "medical_emergency",
+    "severity": "CRITICAL",
+    "priority": "P1",
+    "people_affected": 1,
+    "description": "Person unconscious at community sports ground."
+  },
+  {
+    "id": "INC-004",
+    "type": "flood",
+    "severity": "HIGH",
+    "priority": "P2",
+    "people_affected": 8,
+    "description": "Waterlogging has submerged the main road."
+  },
+  {
+    "id": "INC-005",
+    "type": "road_accident",
+    "severity": "HIGH",
+    "priority": "P2",
+    "people_affected": 2,
+    "description": "Vehicle collision with possible injuries."
+  },
+  {
+    "id": "INC-006",
+    "type": "gas_leak",
+    "severity": "HIGH",
+    "priority": "P2",
+    "people_affected": 4,
+    "description": "Gas leak smell near commercial kitchen."
+  },
+  {
+    "id": "INC-007",
+    "type": "missing_vulnerable_person",
+    "severity": "MODERATE",
+    "priority": "P3",
+    "people_affected": 1,
+    "description": "Elderly person reported missing."
+  },
+  {
+    "id": "INC-008",
+    "type": "industrial_accident",
+    "severity": "MODERATE",
+    "priority": "P3",
+    "people_affected": 1,
+    "description": "Worker injured at a construction site."
+  },
+  {
+    "id": "INC-009",
+    "type": "public_safety_incident",
+    "severity": "LOW",
+    "priority": "P4",
+    "people_affected": 0,
+    "description": "Neighborhood power outage, no injuries."
+  },
+  {
+    "id": "INC-010",
+    "type": "fire",
+    "severity": "LOW",
+    "priority": "P4",
+    "people_affected": 0,
+    "description": "Small roadside fire contained by residents."
+  }
+]

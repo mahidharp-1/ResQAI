@@ -1,0 +1,105 @@
+[
+  {
+    "resource_id": "AMB-01",
+    "type": "Ambulance",
+    "status": "AVAILABLE",
+    "capacity": 2,
+    "capabilities": [
+      "trauma",
+      "ambulance"
+    ]
+  },
+  {
+    "resource_id": "AMB-02",
+    "type": "Ambulance",
+    "status": "AVAILABLE",
+    "capacity": 2,
+    "capabilities": [
+      "ambulance",
+      "medical"
+    ]
+  },
+  {
+    "resource_id": "AMB-03",
+    "type": "Ambulance",
+    "status": "BUSY",
+    "capacity": 2,
+    "capabilities": [
+      "trauma",
+      "ambulance"
+    ]
+  },
+  {
+    "resource_id": "FIRE-01",
+    "type": "Fire truck",
+    "status": "AVAILABLE",
+    "capacity": 6,
+    "capabilities": [
+      "fire",
+      "foam",
+      "rescue"
+    ]
+  },
+  {
+    "resource_id": "FIRE-02",
+    "type": "Fire truck",
+    "status": "BUSY",
+    "capacity": 6,
+    "capabilities": [
+      "fire",
+      "foam"
+    ]
+  },
+  {
+    "resource_id": "POL-01",
+    "type": "Police vehicle",
+    "status": "AVAILABLE",
+    "capacity": 4,
+    "capabilities": [
+      "police",
+      "traffic"
+    ]
+  },
+  {
+    "resource_id": "POL-02",
+    "type": "Police vehicle",
+    "status": "AVAILABLE",
+    "capacity": 4,
+    "capabilities": [
+      "police",
+      "traffic"
+    ]
+  },
+  {
+    "resource_id": "RES-01",
+    "type": "Rescue vehicle",
+    "status": "AVAILABLE",
+    "capacity": 8,
+    "capabilities": [
+      "rescue",
+      "collapse",
+      "flood"
+    ]
+  },
+  {
+    "resource_id": "MED-01",
+    "type": "Medical team",
+    "status": "AVAILABLE",
+    "capacity": 5,
+    "capabilities": [
+      "medical",
+      "triage"
+    ]
+  },
+  {
+    "resource_id": "DRT-01",
+    "type": "Disaster response team",
+    "status": "AVAILABLE",
+    "capacity": 12,
+    "capabilities": [
+      "disaster",
+      "flood",
+      "collapse"
+    ]
+  }
+]

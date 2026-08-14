@@ -1,0 +1,325 @@
+"""ResQAI live resource movement engine.
+
+The route geometry is real OSRM road geometry when SafeRoute succeeds.
+Movement itself is simulated for the hackathon demo: API polling advances the
+resource along the stored road geometry and persists the live coordinates.
+
+Important lifecycle rule:
+- A resource becomes AVAILABLE when it reaches its destination.
+- An incident becomes RESOLVED only when no BUSY resource remains assigned to it.
+  This prevents the first arriving responder from prematurely resolving a
+  multi-resource incident.
+"""
+
+from __future__ import annotations
+
+import math
+import time
+from datetime import datetime
+
+TIME_SCALE = 0.08
+MIN_SECONDS = 12.0
+
+# In-memory movement state is intentional for the demo. The database remains
+# the source of truth for resource status and coordinates.
+MOVEMENTS: dict[str, dict] = {}
+
+
+def distance_m(a, b):
+    """Approximate distance in meters between [lon, lat] points."""
+    lon1, lat1 = float(a[0]), float(a[1])
+    lon2, lat2 = float(b[0]), float(b[1])
+
+    dy = (lat2 - lat1) * 111320.0
+    dx = (
+        (lon2 - lon1)
+        * 111320.0
+        * math.cos(
+            math.radians((lat1 + lat2) / 2.0)
+        )
+    )
+
+    return math.hypot(dx, dy)
+
+
+def total_distance_m(geometry):
+    if not isinstance(geometry, list) or len(geometry) < 2:
+        return 0.0
+
+    return sum(
+        distance_m(
+            geometry[i - 1],
+            geometry[i],
+        )
+        for i in range(1, len(geometry))
+    )
+
+
+def interpolate(geometry, progress):
+    """Return [lon, lat] at a normalized progress value."""
+    if not geometry:
+        return None
+
+    if len(geometry) == 1:
+        return [
+            float(geometry[0][0]),
+            float(geometry[0][1]),
+        ]
+
+    progress = max(
+        0.0,
+        min(1.0, float(progress)),
+    )
+
+    lengths = [
+        distance_m(
+            geometry[i - 1],
+            geometry[i],
+        )
+        for i in range(1, len(geometry))
+    ]
+
+    total = sum(lengths)
+
+    if total <= 0:
+        point = geometry[-1]
+        return [
+            float(point[0]),
+            float(point[1]),
+        ]
+
+    target = total * progress
+    travelled = 0.0
+
+    for i, length in enumerate(lengths):
+        if travelled + length >= target:
+            ratio = (
+                0.0
+                if length <= 0
+                else (target - travelled) / length
+            )
+
+            a = geometry[i]
+            b = geometry[i + 1]
+
+            return [
+                float(a[0])
+                + (
+                    float(b[0]) - float(a[0])
+                ) * ratio,
+                float(a[1])
+                + (
+                    float(b[1]) - float(a[1])
+                ) * ratio,
+            ]
+
+        travelled += length
+
+    point = geometry[-1]
+
+    return [
+        float(point[0]),
+        float(point[1]),
+    ]
+
+
+def public(resource_id, resource):
+    """Serialize movement state for the frontend."""
+    state = MOVEMENTS.get(resource_id)
+
+    if not state:
+        return None
+
+    duration = max(
+        MIN_SECONDS,
+        float(state["duration_seconds"]),
+    )
+
+    elapsed = max(
+        0.0,
+        time.time() - state["started_at"],
+    )
+
+    progress = min(
+        1.0,
+        elapsed / duration,
+    )
+
+    remaining = max(
+        0.0,
+        duration - elapsed,
+    )
+
+    return {
+        "active": True,
+        "resource_id": resource_id,
+        "incident_id": state["incident_id"],
+        "status": (
+            "EN_ROUTE"
+            if progress < 1.0
+            else "ARRIVED"
+        ),
+        "progress": round(progress, 4),
+        "progress_percent": round(
+            progress * 100.0,
+            1,
+        ),
+        "eta_seconds": int(
+            math.ceil(remaining)
+        ),
+        "eta_minutes": round(
+            remaining / 60.0,
+            2,
+        ),
+        "remaining_distance_km": round(
+            state["distance_m"]
+            * (1.0 - progress)
+            / 1000.0,
+            3,
+        ),
+        "distance_km": round(
+            state["distance_m"] / 1000.0,
+            3,
+        ),
+        "geometry": state["geometry"],
+        "route_id": state.get("route_id"),
+        "route_source": state.get(
+            "route_source",
+            "OSRM",
+        ),
+        "origin": {
+            "latitude": state["origin_lat"],
+            "longitude": state["origin_lon"],
+        },
+        "destination": {
+            "latitude": state["destination_lat"],
+            "longitude": state["destination_lon"],
+        },
+    }
+
+
+def advance(db, Resource, Incident):
+    """
+    Advance every active movement based on wall-clock time.
+
+    Returns a list of arrivals. The function is safe to call repeatedly and
+    is normally invoked by GET /api/resources and GET /movement.
+    """
+    changed = False
+    arrivals = []
+    now = time.time()
+
+    for resource_id, state in list(
+        MOVEMENTS.items()
+    ):
+        resource = (
+            db.query(Resource)
+            .filter(
+                Resource.resource_id == resource_id
+            )
+            .first()
+        )
+
+        if not resource:
+            MOVEMENTS.pop(
+                resource_id,
+                None,
+            )
+            continue
+
+        duration = max(
+            MIN_SECONDS,
+            float(state["duration_seconds"]),
+        )
+
+        progress = min(
+            1.0,
+            max(
+                0.0,
+                (now - state["started_at"])
+                / duration,
+            ),
+        )
+
+        # Complete slightly before the exact wall-clock boundary so the
+        # lifecycle release happens in advance() before public() can report
+        # ARRIVED while the DB resource is still BUSY.
+        if progress >= 0.995:
+            progress = 1.0
+
+        point = interpolate(
+            state["geometry"],
+            progress,
+        )
+
+        if point:
+            # OSRM GeoJSON coordinates are [longitude, latitude].
+            resource.longitude = point[0]
+            resource.latitude = point[1]
+            changed = True
+
+        if progress < 1.0:
+            continue
+
+        # Arrival.
+        resource.latitude = state["destination_lat"]
+        resource.longitude = state["destination_lon"]
+
+        incident_id = resource.current_incident_id
+
+        resource.status = "AVAILABLE"
+        resource.current_incident_id = None
+
+        # Remove the active movement only after the resource has been
+        # persisted at its destination.
+        MOVEMENTS.pop(
+            resource_id,
+            None,
+        )
+
+        arrivals.append({
+            "resource_id": resource_id,
+            "incident_id": incident_id,
+        })
+
+        if incident_id:
+            incident = db.get(
+                Incident,
+                incident_id,
+            )
+
+            if incident:
+                # Resolve a multi-resource incident only after this
+                # resource has been released AND no other assigned resource
+                # remains BUSY.
+                remaining_busy = (
+                    db.query(Resource)
+                    .filter(
+                        Resource.current_incident_id
+                        == incident_id,
+                        Resource.status
+                        == "BUSY",
+                    )
+                    .count()
+                )
+
+                if remaining_busy == 0:
+                    incident.status = "RESOLVED"
+
+                else:
+                    incident.status = "RESPONDING"
+
+                if hasattr(
+                    incident,
+                    "updated_at",
+                ):
+                    incident.updated_at = (
+                        datetime.utcnow()
+                    )
+
+        changed = True
+
+    if changed:
+        db.commit()
+
+    return arrivals
