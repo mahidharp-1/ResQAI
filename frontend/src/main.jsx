@@ -1200,34 +1200,89 @@ function CommandCenter() {
   const [error, setError] = useState("");
 
   async function load() {
-    try {
-      const [s, incidentData, resourceData] = await Promise.all([
-        api("/dashboard/stats"),
-        api("/incidents"),
-        api("/resources")
-      ]);
+  try {
+    const [s, incidentData, resourceData] = await Promise.all([
+      api("/dashboard/stats"),
+      api("/incidents"),
+      api("/resources")
+    ]);
 
-      setStats(s);
-      setIncidents(
-        Array.isArray(incidentData)
-          ? incidentData
-          : incidentData?.value || []
-      );
+    const incidentRows = Array.isArray(incidentData)
+      ? incidentData
+      : incidentData?.value || [];
 
-      setResources(
-        Array.isArray(resourceData)
-          ? resourceData
-          : resourceData?.value || []
-      );
+    const resourceRows = Array.isArray(resourceData)
+      ? resourceData
+      : resourceData?.value || [];
 
-      setUpdated(new Date());
-      setError("");
-    } catch (e) {
-      console.error("Command Center loading error:", e);
-      setError(e.message || "Unable to load command center.");
-    }
+    /*
+     * Get the latest movement position for every resource.
+     * This makes the map independent of whether /resources
+     * includes the movement object correctly.
+     */
+    const resourcesWithMovement = await Promise.all(
+      resourceRows.map(async (resource) => {
+        try {
+          const movement = await api(
+            `/resources/${encodeURIComponent(resource.resource_id)}/movement`
+          );
+
+          return {
+            ...resource,
+
+            /*
+             * Movement endpoint is the authoritative live position.
+             */
+            latitude:
+              movement?.latitude != null
+                ? Number(movement.latitude)
+                : resource.latitude,
+
+            longitude:
+              movement?.longitude != null
+                ? Number(movement.longitude)
+                : resource.longitude,
+
+            status:
+              movement?.status || resource.status,
+
+            current_incident_id:
+              movement?.incident_id ??
+              resource.current_incident_id,
+
+            movement: {
+              ...(resource.movement || {}),
+              ...(movement || {})
+            }
+          };
+        } catch (movementError) {
+          console.warn(
+            `Movement update failed for ${resource.resource_id}:`,
+            movementError
+          );
+
+          return resource;
+        }
+      })
+    );
+
+    setStats(s);
+    setIncidents(incidentRows);
+    setResources(resourcesWithMovement);
+    setUpdated(new Date());
+    setError("");
+  } catch (e) {
+    console.error(
+      "Command Center loading error:",
+      e
+    );
+
+    setError(
+      e.message ||
+      "Unable to load command center."
+    );
   }
-
+}
   useEffect(() => {
     load();
 
